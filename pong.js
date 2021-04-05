@@ -260,10 +260,6 @@ const saveBlockNumber = (endBlockWindow) => {
       }
     }
 
-    // Update unping Count
-    unpingedCount += pingSet.size;
-
-    console.log("Total Unponged Pings: " + unpingedCount);
     // console.log(pingDict);
 
     // Move Block Window
@@ -273,7 +269,13 @@ const saveBlockNumber = (endBlockWindow) => {
     if (endBlockWindow > latestBlock) endBlockWindow = latestBlock;
   }
 
+  // Print pingSet
   console.log(pingSet);
+
+  // Update unping Count
+  unpingedCount += pingSet.size;
+  console.log("Total Unponged Pings: " + unpingedCount);
+
   // Convert Set to Array for iteration
   let pingArray = Array.from(pingSet);
 
@@ -283,6 +285,8 @@ const saveBlockNumber = (endBlockWindow) => {
     nonce = await Pong(contract, pingArray[j], account, nonce);
     nonce = nonce + 1;
     saveBlockNumber(pingDict[pingArray[j]]);
+    unpingedCount -= 1;
+    console.log("Pings Left: " + unpingedCount);
   }
 
   // Sync End
