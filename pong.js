@@ -9,7 +9,13 @@ if (typeof web3 !== "undefined") {
   // Connect to the kovan network using the infura provider
   web3 = new Web3(
     new Web3.providers.WebsocketProvider(
-      "wss://kovan.infura.io/ws/v3/fea43923cc6e4e449d156724c716762b" // Infura Kovan Provider
+      "wss://kovan.infura.io/ws/v3/fea43923cc6e4e449d156724c716762b", // Infura Kovan Provider
+      {
+        clientOptions: {
+          maxReceivedFrameSize: 100000000,
+          maxReceivedMessageSize: 100000000,
+        },
+      }
       // "ws://127.0.0.1:7545" // Local Node
     )
   );
@@ -71,7 +77,6 @@ const Pong = async (contract, pingTxnHash, account, nonce) => {
         console.log(result);
         return nonce;
       });
-
     return nonce;
   } catch (e) {
     console.log(e);
@@ -105,7 +110,7 @@ const getPastEvents = async (
         (error, events) => events
       )
       .then((result) => result);
-    console.log(pastEvents);
+    // console.log(pastEvents);
     return pastEvents;
   } catch (e) {
     console.log(e);
@@ -199,10 +204,10 @@ const saveBlockNumber = (endBlockWindow) => {
       endBlockWindow = startBlock + blockInterval;
     });
   } else {
-    fs.writeFile("endblock.txt", 0, async function (err) {
-      if (err) throw err;
-      console.log("Saved!");
-      startBlock = await getStartBlock(contractTH).then((startBlock) => {
+    startBlock = await getStartBlock(contractTH).then((startBlock) => {
+      fs.writeFile("endblock.txt", startBlock, async function (err) {
+        if (err) throw err;
+        console.log("Saved!");
         startBlockWindow = startBlock;
         endBlockWindow = startBlock + blockInterval;
       });
@@ -219,8 +224,17 @@ const saveBlockNumber = (endBlockWindow) => {
   // Initialize start nonce
   let nonce = await web3.eth.getTransactionCount(account);
 
+  // Initialize Ping Dictionary: PingTxnHash : BlockNumber
+  let pingDict = {};
+
+  // Initialize unPonged Ping counter
+  let unpingedCount = 0;
+
+  // Initialize ping Set
+  let pingSet = new Set();
+
   // Get Past Events of Blocks within a range (sync)
-  while (startBlockWindow <= latestBlock) {
+  while (startBlockWindow < latestBlock) {
     console.log("Start Block Window: " + startBlockWindow);
     console.log("End Block Window: " + endBlockWindow);
     console.log("Latest Block: " + latestBlock);
@@ -234,35 +248,44 @@ const saveBlockNumber = (endBlockWindow) => {
     );
 
     // console.log(pastEvents);
-    // Initialize ping Set
-    let pingSet = new Set();
 
     // If Ping is found, add its TxnHash to the set,
     // If Pong is found, remove associated Ping with the same Txn hash
     for (let i = 0; i < pastEvents.length; i++) {
       if (pastEvents[i].event == "Ping") {
         pingSet.add(pastEvents[i].transactionHash);
+        pingDict[pastEvents[i].transactionHash] = pastEvents[i].blockNumber;
       } else if (pastEvents[i].event == "Pong") {
         pingSet.delete(pastEvents[i].returnValues.txHash);
       }
     }
-    console.log(pingSet);
 
-    // Convert Set to Array for iteration
-    let pingArray = Array.from(pingSet);
+    // Update unping Count
+    unpingedCount += pingSet.size;
 
-    // Pong all un-ponged pings in the Block Window
+    console.log("Total Unponged Pings: " + unpingedCount);
+    // console.log(pingDict);
 
-    for (let j = 0; j < pingArray.length; j++) {
-      nonce = await Pong(contract, pingArray[j], account, nonce);
-      nonce = nonce + 1;
-    }
-
-    saveBlockNumber(endBlockWindow);
     // Move Block Window
     startBlockWindow += blockInterval;
     endBlockWindow += blockInterval;
-  } // Sync End
+
+    if (endBlockWindow > latestBlock) endBlockWindow = latestBlock;
+  }
+
+  console.log(pingSet);
+  // Convert Set to Array for iteration
+  let pingArray = Array.from(pingSet);
+
+  // Pong all un-ponged pings in the Ping Set
+
+  for (let j = 0; j < pingArray.length; j++) {
+    nonce = await Pong(contract, pingArray[j], account, nonce);
+    nonce = nonce + 1;
+    saveBlockNumber(pingDict[pingArray[j]]);
+  }
+
+  // Sync End
 
   latestBlock = await web3.eth.getBlockNumber();
   saveBlockNumber(latestBlock);
