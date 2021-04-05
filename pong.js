@@ -61,22 +61,24 @@ const getAccount = async () => {
 };
 
 const Pong = async (contract, pingTxnHash, account, nonce) => {
+  let result;
+  let tx;
   try {
-    const gasPrice = await web3.eth.getGasPrice();
+    console.log("Pong(" + pingTxnHash + ")");
     console.log("Nonce: " + nonce);
 
-    const tx = contract.methods.pong(pingTxnHash);
-    await tx
-      .send({
-        from: account,
-        nonce: nonce,
-        gasPrice: gasPrice,
-        gas: (await tx.estimateGas()) * 10,
-      })
-      .then((result) => {
-        console.log(result);
-        return nonce;
-      });
+    tx = contract.methods.pong(pingTxnHash);
+    result = await tx.send({
+      from: account,
+      nonce: nonce,
+      gasPrice: await web3.eth.getGasPrice(),
+      gas: (await tx.estimateGas()) * 10,
+    });
+    // .then((result) => {
+
+    //   return nonce;
+    // });
+    console.log("Pong Success: " + result.transactionHash);
     return nonce;
   } catch (e) {
     console.log(e);
@@ -157,11 +159,11 @@ const getContractTH = async () => {
   return contractTH;
 };
 
-const saveBlockNumber = (endBlockWindow) => {
+const saveBlockNumber = (blockNumber) => {
   // Record endBlockWindow into local file
-  fs.writeFile("endblock.txt", endBlockWindow, function (err) {
+  fs.writeFile("endblock.txt", blockNumber, function (err) {
     if (err) throw err;
-    console.log("Saved!");
+    console.log("Block " + blockNumber + " Saved to endblock.txt!");
   });
 };
 
@@ -280,13 +282,13 @@ const saveBlockNumber = (endBlockWindow) => {
   let pingArray = Array.from(pingSet);
 
   // Pong all un-ponged pings in the Ping Set
-
+  console.log("Begin Pongs...\n");
   for (let j = 0; j < pingArray.length; j++) {
     nonce = await Pong(contract, pingArray[j], account, nonce);
     nonce = nonce + 1;
-    saveBlockNumber(pingDict[pingArray[j]]);
     unpingedCount -= 1;
-    console.log("Pings Left: " + unpingedCount);
+    saveBlockNumber(pingDict[pingArray[j]]);
+    console.log("Pings Left: " + unpingedCount + "\n");
   }
 
   // Sync End
