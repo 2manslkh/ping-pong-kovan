@@ -186,19 +186,9 @@ const saveBlockNumber = (blockNumber) => {
   let startBlockWindow;
   let endBlockWindow;
   let startBlock;
+
   // Check if endblock.txt file exists, if it does, load the value and assign it to startBlock
-
-  // try {
-  //   fs.readFile("endblock.txt", function (err, data) {
-  //     if (err) throw err;
-  //     startBlock = parseInt(data);
-  //     startBlockWindow = startBlock;
-  //     endBlockWindow = startBlock + blockInterval;
-  //   });
-  // } catch (err) {}
-
   if (fs.existsSync("endblock.txt")) {
-    // Do something
     fs.readFile("endblock.txt", function (err, data) {
       if (err) throw err;
       startBlock = parseInt(data);
@@ -292,9 +282,8 @@ const saveBlockNumber = (blockNumber) => {
   }
 
   // Sync End
-
-  latestBlock = await web3.eth.getBlockNumber();
   saveBlockNumber(latestBlock);
+
   // Realtime update
   console.log("All Pings before " + latestBlock + "have been Ponged.");
   console.log("Listening for new Pings...");
